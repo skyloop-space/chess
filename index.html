@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chess Online - Dosto ke saath khelo</title>
+<style>
+:root{--bg:#16221d;--panel:#203129;--ink:#f1ead8;--mute:#9db1a5;--light:#ecdcb6;--dark:#6f9460;--gold:#e3b04b;--red:#d4574a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif;min-height:100vh;display:flex;justify-content:center}
+#app{width:100%;max-width:640px;padding:16px;text-align:center}
+h1{font-size:2rem;margin:8px 0 4px;letter-spacing:.5px}
+p.sub{color:var(--mute);margin:0 0 18px}
+.card{background:var(--panel);border-radius:14px;padding:18px;margin:12px 0;text-align:left}
+.card h2{margin:0 0 6px;font-size:1.15rem}
+.card p{margin:0 0 12px;color:var(--mute);font-size:.95rem}
+button{font:inherit;background:var(--gold);color:#1b1608;border:0;border-radius:9px;padding:10px 16px;cursor:pointer;font-weight:bold}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--mute)}
+button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
+input{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid var(--mute);background:#0f1814;color:var(--ink);width:150px;text-transform:uppercase;letter-spacing:3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.code{font-size:2rem;letter-spacing:6px;color:var(--gold);font-weight:bold}
+#board{--b:min(94vw,70vh,560px);width:var(--b);height:var(--b);margin:10px auto;display:grid;grid-template-columns:repeat(8,1fr);border:4px solid #0d1511;border-radius:4px;user-select:none}
+.sq{position:relative;display:flex;align-items:center;justify-content:center;font-size:calc(var(--b)/8*.78);line-height:1;cursor:pointer}
+.sq.l{background:var(--light)}.sq.d{background:var(--dark)}
+.sq.last::after{content:"";position:absolute;inset:0;background:rgba(227,176,75,.45)}
+.sq.sel::after{content:"";position:absolute;inset:0;background:rgba(80,160,255,.5)}
+.sq.chk{box-shadow:inset 0 0 0 4px var(--red)}
+.sq.mv::before{content:"";position:absolute;width:28%;height:28%;border-radius:50%;background:rgba(20,30,25,.4);z-index:2}
+.sq.cp::before{content:"";position:absolute;inset:3px;border-radius:50%;border:4px solid rgba(20,30,25,.45);z-index:2}
+.pc{position:relative;z-index:1}
+.pc.w{color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 1px 3px #000}
+.pc.b{color:#161616;text-shadow:0 0 1px #fff}
+#status{font-size:1.15rem;min-height:1.6em;margin:6px 0}
+.bar{display:flex;justify-content:space-between;width:min(94vw,70vh,560px);margin:0 auto;color:var(--mute);font-size:.95rem}
+#moves{width:min(94vw,70vh,560px);margin:10px auto;text-align:left;background:var(--panel);border-radius:10px;padding:10px;max-height:110px;overflow:auto;font-size:.9rem;color:var(--mute)}
+#ctl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+#promo{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:9}
+#promo[hidden],#game[hidden],#lobby[hidden],.hide{display:none}
+#promo div{background:var(--panel);padding:16px;border-radius:12px;display:flex;gap:10px}
+#promo button{font-size:2.4rem;padding:6px 14px;background:var(--light);color:#222}
+#err{color:var(--red);min-height:1.2em;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>♞ Chess Online</h1>
+  <p class="sub">Room banao, code dosto ko bhejo, aur saath me khelo.</p>
+
+  <div id="lobby">
+    <div class="card">
+      <h2>Room banao</h2>
+      <p>Tumhara room code ban jayega. Dost ko code ya link bhejo.</p>
+      <button id="bCreate">Room banao</button>
+      <div id="roomInfo" class="hide" style="margin-top:12px">
+        <div class="code" id="roomCode"></div>
+        <p style="margin:6px 0">Dost ka intezaar ho raha hai...</p>
+        <button class="alt" id="bCopy">Link copy karo</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Room me judo</h2>
+      <p>Dost ne jo code bheja hai wo yahan daalo.</p>
+      <div class="row"><input id="joinCode" maxlength="5" placeholder="CODE" autocomplete="off"><button id="bJoin">Judo</button></div>
+    </div>
+    <div class="card">
+      <h2>Ek hi device par khelo</h2>
+      <p>Dono players baari baari se ek hi screen par khelte hain.</p>
+      <button class="alt" id="bLocal">Local game shuru karo</button>
+    </div>
+    <div id="err"></div>
+  </div>
+
+  <div id="game" hidden>
+    <div class="bar"><span id="topName"></span><span id="roomTag"></span></div>
+    <div id="status"></div>
+    <div id="board"></div>
+    <div class="bar"><span id="botName"></span><span></span></div>
+    <div id="moves"></div>
+    <div id="ctl">
+      <button class="alt" id="bResign">Haar maano</button>
+      <button id="bNew">Naya game</button>
+      <button class="alt" id="bLeave">Bahar niklo</button>
+    </div>
+  </div>
+</div>
+<div id="promo" hidden><div id="promoBtns"></div></div>
+
+<script>
+/* ---------- Chess engine ---------- */
+const START="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+const GL={K:"♚",Q:"♛",R:"♜",B:"♝",N:"♞",P:"♟"};
+const DG=[[-1,-1],[-1,1],[1,-1],[1,1]],OR=[[-1,0],[1,0],[0,-1],[0,1]],NT=[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]],AL=[...DG,...OR];
+const isW=p=>p===p.toUpperCase();
+const inb=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+function newState(){
+  const rows=START.split("/");
+  return{b:rows.join("").replace(/\d/g,n=>" ".repeat(0)+"".padEnd(+n,"_")).split("").map(x=>x==="_"?"":x),turn:"w",cr:"KQkq",ep:-1};
+}
+function att(b,sq,white){
+  const r=sq>>3,c=sq&7,pr=white?r+1:r-1;
+  if(pr>=0&&pr<8)for(const dc of[-1,1]){const cc=c+dc;if(cc>=0&&cc<8&&b[pr*8+cc]===(white?"P":"p"))return true}
+  for(const[dr,dc]of NT){const rr=r+dr,cc=c+dc;if(inb(rr,cc)&&b[rr*8+cc]===(white?"N":"n"))return true}
+  for(const[dr,dc]of AL){const rr=r+dr,cc=c+dc;if(inb(rr,cc)&&b[rr*8+cc]===(white?"K":"k"))return true}
+  for(const[dr,dc]of AL){
+    const diag=dr&&dc;let rr=r+dr,cc=c+dc;
+    while(inb(rr,cc)){
+      const p=b[rr*8+cc];
+      if(p){const u=p.toUpperCase();if(isW(p)===white&&(u==="Q"||u===(diag?"B":"R")))return true;break}
+      rr+=dr;cc+=dc;
+    }
+  }
+  return false;
+}
+function gen(s){
+  const b=s.b,out=[],white=s.turn==="w";
+  for(let sq=0;sq<64;sq++){
+    const p=b[sq];if(!p||isW(p)!==white)continue;
+    const u=p.toUpperCase(),r=sq>>3,c=sq&7;
+    const add=(t,x)=>out.push({f:sq,t,...x});
+    const enemy=t=>b[t]&&isW(b[t])!==white;
+    if(u==="P"){
+      const dir=white?-1:1,start=white?6:1,last=white?0:7;
+      const push=t=>{if((t>>3)===last){for(const q of"QRBN")add(t,{p:q})}else add(t)};
+      const t=sq+dir*8;
+      if(!b[t]){push(t);if(r===start&&!b[t+dir*8])add(t+dir*8)}
+      for(const dc of[-1,1]){
+        const cc=c+dc;if(cc<0||cc>7)continue;
+        const t2=sq+dir*8+dc;
+        if(enemy(t2))push(t2);else if(t2===s.ep)add(t2);
+      }
+    }else if(u==="N"||u==="K"){
+      for(const[dr,dc]of(u==="N"?NT:AL)){
+        const rr=r+dr,cc=c+dc;if(!inb(rr,cc))continue;
+        const t=rr*8+cc;if(!b[t]||enemy(t))add(t);
+      }
+      if(u==="K"&&sq===(white?60:4)&&!att(b,sq,!white)){
+        const base=white?56:0,kr=white?"K":"k",qr=white?"Q":"q";
+        if(s.cr.includes(kr)&&!b[base+5]&&!b[base+6]&&b[base+7]===(white?"R":"r")&&!att(b,base+5,!white)&&!att(b,base+6,!white))add(base+6);
+        if(s.cr.includes(qr)&&!b[base+1]&&!b[base+2]&&!b[base+3]&&b[base]===(white?"R":"r")&&!att(b,base+3,!white)&&!att(b,base+2,!white))add(base+2);
+      }
+    }else{
+      for(const[dr,dc]of(u==="B"?DG:u==="R"?OR:AL)){
+        let rr=r+dr,cc=c+dc;
+        while(inb(rr,cc)){
+          const t=rr*8+cc;
+          if(!b[t])add(t);else{if(enemy(t))add(t);break}
+          rr+=dr;cc+=dc;
+        }
+      }
+    }
+  }
+  return out;
+}
+function apply(s,m){
+  const b=s.b.slice(),p=b[m.f],white=isW(p),u=p.toUpperCase(),cap=b[m.t];
+  let cr=s.cr,ep=-1;
+  b[m.t]=m.p?(white?m.p:m.p.toLowerCase()):p;b[m.f]="";
+  if(u==="P"){
+    if(m.t===s.ep&&(m.f&7)!==(m.t&7)&&!cap)b[m.t+(white?8:-8)]="";
+    if(Math.abs(m.t-m.f)===16)ep=(m.f+m.t)/2;
+  }
+  if(u==="K"){
+    if(Math.abs((m.t&7)-(m.f&7))===2){
+      const base=white?56:0;
+      if((m.t&7)===6){b[base+5]=b[base+7];b[base+7]=""}else{b[base+3]=b[base];b[base]=""}
+    }
+    cr=cr.replace(white?/[KQ]/g:/[kq]/g,"");
+  }
+  for(const sq of[m.f,m.t]){
+    if(sq===63)cr=cr.replace("K","");if(sq===56)cr=cr.replace("Q","");
+    if(sq===7)cr=cr.replace("k","");if(sq===0)cr=cr.replace("q","");
+  }
+  return{b,turn:white?"b":"w",cr,ep};
+}
+function legal(s){
+  const white=s.turn==="w";
+  return gen(s).filter(m=>{const n=apply(s,m);return!att(n.b,n.b.indexOf(white?"K":"k"),!white)});
+}
+function insufficient(b){
+  const ps=b.filter(x=>x&&x.toUpperCase()!=="K");
+  if(!ps.length)return true;
+  return ps.length===1&&"BNbn".includes(ps[0]);
+}
+const nm=sq=>"abcdefgh"[sq&7]+(8-(sq>>3));
+
+/* ---------- Game state ---------- */
+let G=null,me="w",mode="local",peer=null,conn=null,roomCode="",selected=-1,targets=[],pendingPromo=null;
+const $=id=>document.getElementById(id);
+
+function startGame(color){
+  me=color;
+  G={s:newState(),hist:[],over:false,msg:"",last:null,chk:-1};
+  selected=-1;targets=[];
+  $("lobby").hidden=true;$("game").hidden=false;
+  const online=mode==="online";
+  $("topName").textContent=online?(me==="w"?"Dost (Kaala)":"Dost (Safed)"):"Kaala";
+  $("botName").textContent=online?(me==="w"?"Tum (Safed)":"Tum (Kaala)"):"Safed";
+  $("roomTag").textContent=online?"Room: "+roomCode:"Local game";
+  $("bResign").style.display=online?"":"none";
+  updateStatus();render();
+}
+function winnerText(w){
+  if(mode==="local")return(w==="w"?"Safed":"Kaala")+" jeet gaya!";
+  return w===me?"Tum jeet gaye!":"Dost jeet gaya!";
+}
+function updateStatus(){
+  const s=G.s,L=legal(s),w=s.turn==="w",k=s.b.indexOf(w?"K":"k"),chk=att(s.b,k,!w);
+  G.chk=chk?k:-1;
+  if(G.over)return;
+  if(!L.length){G.over=true;G.msg=chk?"Checkmate! "+winnerText(w?"b":"w"):"Stalemate - game draw";G.chk=chk?k:-1}
+  else if(insufficient(s.b)){G.over=true;G.msg="Draw - checkmate ke liye piece kam hain"}
+  else{
+    const who=mode==="local"?(w?"Safed":"Kaala")+" ki baari":(s.turn===me?"Tumhari baari":"Dost ki baari");
+    G.msg=(chk?"Check! ":"")+who;
+  }
+}
+function render(){
+  const flip=me==="b",el=$("board");let h="";
+  for(let i=0;i<64;i++){
+    const sq=flip?63-i:i,r=sq>>3,c=sq&7,p=G.s.b[sq];
+    let cls="sq "+((r+c)%2?"d":"l");
+    if(G.last&&(sq===G.last.f||sq===G.last.t))cls+=" last";
+    if(sq===selected)cls+=" sel";
+    if(sq===G.chk)cls+=" chk";
+    if(targets.includes(sq))cls+=p?" cp":" mv";
+    h+=`<div class="${cls}" data-sq="${sq}">${p?`<span class="pc ${isW(p)?"w":"b"}">${GL[p.toUpperCase()]}\uFE0E</span>`:""}</div>`;
+  }
+  el.innerHTML=h;
+  $("status").textContent=G.msg;
+  $("moves").textContent=G.hist.length?G.hist.map((x,i)=>(i%2?"":(i/2+1|0)+". ")+x).join("  "):"Abhi koi chaal nahi chali.";
+  $("moves").scrollTop=1e5;
+}
+function canMove(){return!G.over&&(mode==="local"||G.s.turn===me)&&(mode==="local"||conn)}
+$("board").addEventListener("click",e=>{
+  const d=e.target.closest(".sq");if(!d||!canMove())return;
+  const sq=+d.dataset.sq,p=G.s.b[sq],white=G.s.turn==="w";
+  if(selected>=0&&targets.includes(sq)){
+    const ms=legal(G.s).filter(m=>m.f===selected&&m.t===sq);
+    if(ms.length>1)return askPromo(ms);
+    return doMove(ms[0],false);
+  }
+  if(p&&isW(p)===white){
+    selected=sq;targets=legal(G.s).filter(m=>m.f===sq).map(m=>m.t);
+  }else{selected=-1;targets=[]}
+  render();
+});
+function askPromo(ms){
+  const white=G.s.turn==="w",box=$("promoBtns");box.innerHTML="";
+  for(const q of"QRBN"){
+    const b=document.createElement("button");b.textContent=GL[q]+"\uFE0E";
+    b.onclick=()=>{$("promo").hidden=true;doMove(ms.find(m=>m.p===q),false)};
+    box.appendChild(b);
+  }
+  $("promo").hidden=false;
+}
+function doMove(m,remote){
+  const p=G.s.b[m.f],u=p.toUpperCase();
+  const txt=(u==="P"?"":u)+nm(m.f)+"-"+nm(m.t)+(m.p?"="+m.p:"");
+  G.s=apply(G.s,m);G.hist.push(txt);G.last={f:m.f,t:m.t};
+  selected=-1;targets=[];
+  updateStatus();render();
+  if(!remote&&mode==="online"&&conn)conn.send({t:"move",m});
+}
+
+/* ---------- Online (PeerJS / WebRTC) ---------- */
+const PREFIX="chessroom-v1-";
+function loadPeerJS(cb){
+  if(window.Peer)return cb();
+  const urls=["https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js","https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"];
+  (function tryLoad(i){
+    if(i>=urls.length)return setErr("Online library load nahi hui. Internet check karo aur page refresh karo.");
+    const s=document.createElement("script");s.src=urls[i];s.onload=cb;s.onerror=()=>tryLoad(i+1);document.head.appendChild(s);
+  })(0);
+}
+function setErr(t){$("err").textContent=t}
+function genCode(){const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<5;i++)s+=a[Math.random()*a.length|0];return s}
+function resetNet(){
+  try{conn&&conn.close()}catch(e){}try{peer&&peer.destroy()}catch(e){}
+  conn=null;peer=null;
+}
+function createRoom(){
+  setErr("");resetNet();
+  loadPeerJS(()=>{
+    roomCode=genCode();
+    peer=new Peer(PREFIX+roomCode);
+    peer.on("open",()=>{
+      $("roomCode").textContent=roomCode;$("roomInfo").classList.remove("hide");
+    });
+    peer.on("error",e=>{
+      if(e.type==="unavailable-id")createRoom();
+      else setErr("Room banane me dikkat: "+e.type);
+    });
+    peer.on("connection",c=>{
+      if(conn){c.on("open",()=>c.close());return}
+      attach(c);
+      c.on("open",()=>{
+        mode="online";
+        const mine=Math.random()<.5?"w":"b";
+        c.send({t:"start",you:mine==="w"?"b":"w"});
+        startGame(mine);
+      });
+    });
+  });
+}
+function joinRoom(code){
+  code=code.trim().toUpperCase();
+  if(code.length<5)return setErr("5 letter ka room code daalo.");
+  setErr("Judne ki koshish ho rahi hai...");resetNet();
+  loadPeerJS(()=>{
+    roomCode=code;
+    peer=new Peer();
+    const timer=setTimeout(()=>{if(!conn||!conn.open)setErr("Room nahi mila. Code check karo aur dost se room khula rakhne ko bolo.")},12000);
+    peer.on("open",()=>{const c=peer.connect(PREFIX+code,{reliable:true});attach(c)});
+    peer.on("error",e=>{clearTimeout(timer);setErr(e.type==="peer-unavailable"?"Ye room nahi mila. Code dobara check karo.":"Connection error: "+e.type)});
+  });
+}
+function attach(c){
+  conn=c;
+  c.on("data",onData);
+  c.on("close",()=>{
+    if(G&&!G.over){G.over=true;G.msg="Dost disconnect ho gaya.";render()}
+    conn=null;
+  });
+}
+function onData(d){
+  if(d.t==="start"){mode="online";setErr("");startGame(d.you)}
+  else if(d.t==="move"&&G&&!G.over&&G.s.turn!==me){
+    const m=legal(G.s).find(x=>x.f===d.m.f&&x.t===d.m.t&&(x.p||"")===(d.m.p||""));
+    if(m)doMove(m,true);
+  }else if(d.t==="resign"&&G&&!G.over){G.over=true;G.msg="Dost ne haar maan li. Tum jeet gaye!";render()}
+  else if(d.t==="new"){startGame(d.you)}
+}
+
+/* ---------- Buttons ---------- */
+$("bCreate").onclick=createRoom;
+$("bJoin").onclick=()=>joinRoom($("joinCode").value);
+$("joinCode").addEventListener("keydown",e=>{if(e.key==="Enter")joinRoom($("joinCode").value)});
+$("bCopy").onclick=()=>{
+  const link=location.href.split("?")[0].split("#")[0]+"?room="+roomCode;
+  (navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{$("bCopy").textContent="Copy ho gaya!"},()=>{prompt("Ye link dost ko bhejo:",link)});
+};
+$("bLocal").onclick=()=>{resetNet();mode="local";startGame("w")};
+$("bResign").onclick=()=>{
+  if(G.over||!conn)return;
+  if(!confirm("Pakka haar maanni hai?"))return;
+  conn.send({t:"resign"});G.over=true;G.msg="Tumne haar maan li. Dost jeet gaya.";render();
+};
+$("bNew").onclick=()=>{
+  if(mode==="local")return startGame("w");
+  if(!conn)return setErr("Dost abhi connected nahi hai.");
+  const mine=me==="w"?"b":"w";
+  conn.send({t:"new",you:me});startGame(mine);
+};
+$("bLeave").onclick=()=>{
+  resetNet();G=null;mode="local";
+  $("game").hidden=true;$("lobby").hidden=false;
+  $("roomInfo").classList.add("hide");$("bCopy").textContent="Link copy karo";setErr("");
+};
+const q=new URLSearchParams(location.search).get("room");
+if(q){$("joinCode").value=q.toUpperCase();joinRoom(q)}
+</script>
+</body>
+</html>
